@@ -4,9 +4,9 @@ import pandas as pd
 import re
 
 # ===== CONFIGURAÇÕES =====
-pasta_origem = r"C:\Users\melissa.lemes\OneDrive - HITSS DO BRASIL SERVIÇOS TECNOLOGICOS LTDA\Área de Trabalho\mover contratos\origem"
-pasta_destino = r"C:\Users\melissa.lemes\OneDrive - HITSS DO BRASIL SERVIÇOS TECNOLOGICOS LTDA\Área de Trabalho\mover contratos\destino"
-arquivo_csv = r"C:\Users\melissa.lemes\OneDrive - HITSS DO BRASIL SERVIÇOS TECNOLOGICOS LTDA\Área de Trabalho\mover contratos\rhfp0773_980329 (6) 1.csv"
+pasta_origem = r""
+pasta_destino = r""
+arquivo_csv = r""
 
 # ===== LER CSV =====
 df = pd.read_csv(arquivo_csv, sep=";", skiprows=6, encoding="latin1")# ajuste se necessário
