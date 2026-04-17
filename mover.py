@@ -2,68 +2,125 @@ import os
 import shutil
 import pandas as pd
 import re
+import tkinter as tk
+from tkinter import filedialog, messagebox
+from tkinter import ttk
 
-# ===== CONFIGURAÇÕES =====
-pasta_origem = r
-pasta_destino = r
-arquivo_csv = r
+# ===== FUNÇÕES =====
 
-# ===== LER CSV =====
-df = pd.read_csv(arquivo_csv, sep=";", skiprows=6, encoding="latin1")# ajuste se necessário
+def selecionar_origem():
+    pasta = filedialog.askdirectory()
+    entry_origem.delete(0, tk.END)
+    entry_origem.insert(0, pasta)
 
-# Garantir tipo string
-df['MATRICULA'] = df['MATRICULA'].astype(str)
+def selecionar_destino():
+    pasta = filedialog.askdirectory()
+    entry_destino.delete(0, tk.END)
+    entry_destino.insert(0, pasta)
 
-# Criar mapa: matrícula -> data
-mapa = dict(zip(df['MATRICULA'], df['DATA_ADMISSAO']))
+def selecionar_csv():
+    arquivo = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+    entry_csv.delete(0, tk.END)
+    entry_csv.insert(0, arquivo)
 
-# ===== PROCESSAR ARQUIVOS =====
-for arquivo in os.listdir(pasta_origem):
-    caminho_arquivo = os.path.join(pasta_origem, arquivo)
+def executar():
+    pasta_origem = entry_origem.get()
+    pasta_destino = entry_destino.get()
+    arquivo_csv = entry_csv.get()
+    mes_desejado = combo_mes.get()
+    ano_desejado = combo_ano.get()
 
-    if not os.path.isfile(caminho_arquivo):
-        continue
+    if not pasta_origem or not pasta_destino or not arquivo_csv:
+        messagebox.showerror("Erro", "Preencha todos os campos!")
+        return
 
     try:
-        # ===== EXTRAIR MATRÍCULA =====
-        match = re.match(r"(\d+)", arquivo)
+        # ===== LER CSV =====
+        df = pd.read_csv(arquivo_csv, sep=";", skiprows=6, encoding="latin1")
+        df.columns = df.columns.str.strip()
 
-        if not match:
-            print(f"❌ Nome fora do padrão: {arquivo}")
-            continue
+        df['MATRICULA'] = (
+            df['MATRICULA']
+            .astype(str)
+            .str.extract(r'(\d+)')[0]
+        )
 
-        matricula = match.group(1)
+        mapa = dict(zip(df['MATRICULA'], df['DATA_ADMISSAO']))
 
-        # ===== BUSCAR DATA NA PLANILHA =====
-        if matricula not in mapa:
-            print(f"⚠️ Matrícula não encontrada: {arquivo}")
-            continue
+        os.makedirs(pasta_destino, exist_ok=True)
 
-        data = mapa[matricula]
+        movidos = 0
 
-        if pd.isna(data):
-            print(f"⚠️ Sem data para matrícula {matricula}")
-            pasta_mes = "SEM_DATA"
-        else:
-            # ===== USAR DATA DA PLANILHA =====
+        # ===== PROCESSAR =====
+        for arquivo in os.listdir(pasta_origem):
+            caminho_arquivo = os.path.join(pasta_origem, arquivo)
+
+            if not os.path.isfile(caminho_arquivo):
+                continue
+
+            match = re.match(r"(\d+)", arquivo)
+            if not match:
+                continue
+
+            matricula = match.group(1)
+
+            if matricula not in mapa:
+                continue
+
+            data = mapa[matricula]
+            if pd.isna(data):
+                continue
+
             data_dt = pd.to_datetime(data, dayfirst=True)
 
-            # AGRUPAR POR MÊS
-            pasta_mes = data_dt.strftime("%Y-%m")
+            mes = data_dt.strftime("%m")
+            ano = data_dt.strftime("%Y")
 
-        # ===== DEFINIR CAMINHO FINAL =====
-        caminho_pasta_mes = os.path.join(pasta_destino, pasta_mes)
+            if mes == mes_desejado and ano == ano_desejado:
+                destino_final = os.path.join(pasta_destino, arquivo)
+                shutil.move(caminho_arquivo, destino_final)
+                movidos += 1
 
-        # ===== CRIAR PASTA SE NÃO EXISTIR =====
-        if not os.path.exists(caminho_pasta_mes):
-            os.makedirs(caminho_pasta_mes)
-            print(f"📁 Pasta criada: {pasta_mes}")
-
-        # ===== MOVER ARQUIVO =====
-        destino_final = os.path.join(caminho_pasta_mes, arquivo)
-        shutil.move(caminho_arquivo, destino_final)
-
-        print(f"✅ Movido: {arquivo} -> {pasta_mes}")
+        messagebox.showinfo("Sucesso", f"{movidos} arquivos movidos!")
 
     except Exception as e:
-        print(f"❌ Erro ao processar {arquivo}: {e}")
+        messagebox.showerror("Erro", str(e))
+
+
+# ===== INTERFACE =====
+janela = tk.Tk()
+janela.title("Mover arquivos por mês")
+janela.geometry("500x300")
+
+# Origem
+tk.Label(janela, text="Pasta de Origem").pack()
+entry_origem = tk.Entry(janela, width=50)
+entry_origem.pack()
+tk.Button(janela, text="Selecionar", command=selecionar_origem).pack()
+
+# Destino
+tk.Label(janela, text="Pasta de Destino").pack()
+entry_destino = tk.Entry(janela, width=50)
+entry_destino.pack()
+tk.Button(janela, text="Selecionar", command=selecionar_destino).pack()
+
+# CSV
+tk.Label(janela, text="Arquivo CSV").pack()
+entry_csv = tk.Entry(janela, width=50)
+entry_csv.pack()
+tk.Button(janela, text="Selecionar CSV", command=selecionar_csv).pack()
+
+# Mês
+tk.Label(janela, text="Mês").pack()
+combo_mes = ttk.Combobox(janela, values=[f"{i:02d}" for i in range(1, 13)])
+combo_mes.pack()
+
+# Ano (até 2020)
+tk.Label(janela, text="Ano").pack()
+combo_ano = ttk.Combobox(janela, values=[str(i) for i in range(2026, 2019, -1)])
+combo_ano.pack()
+
+# Botão executar
+tk.Button(janela, text="Executar", command=executar, bg="green", fg="white").pack(pady=10)
+
+janela.mainloop()
